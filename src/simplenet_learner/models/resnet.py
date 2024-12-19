@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from src.models import BaseModelClass
+from torch import nn
 
 if TYPE_CHECKING:
     from typing import Literal
@@ -10,7 +10,7 @@ else:
     except ImportError:
         from typing_extensions import Literal
 
-from torch import fx, nn
+from torch import fx
 from torchvision.models import (
     resnet18,
     resnet50,
@@ -21,12 +21,11 @@ from torchvision.models import (
 from torchvision.models.feature_extraction import create_feature_extractor
 
 
-class Classifire(BaseModelClass):
+class Backborn(nn.Module):
     def __init__(
         self,
-        arch: Literal["resnet18", "resnet50", "resnet101"],
+        arch: Literal["resnet18", "resnet50", "resnet101", "wide_resnet50_2", "wide_resnet101_2"],
         pretrain: bool = True,
-        num_classes: int = 50,
     ) -> None:
         super().__init__()
         self.model = {
@@ -37,14 +36,8 @@ class Classifire(BaseModelClass):
             "wide_resnet101_2": wide_resnet101_2(pretrained=pretrain, progress=True),
         }.get(
             arch,
-            resnet50(pretrained=pretrain, progress=True),
+            resnet18(pretrained=pretrain, progress=True),
         )
-
-        self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
-
-    def forward(self, x):
-        logit = self.model(x)
-        return logit
 
     def get_feature_extraction_model(
         self, layers_dict: dict[str, str]

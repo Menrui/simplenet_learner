@@ -9,7 +9,6 @@
         "ms-python.python",
         "charliermarsh.ruff",
         "exiasr.hadolint",
-        "kevinrose.vsc-python-indent",
         "mosapride.zenkaku",
         "ms-azuretools.vscode-docker",
         "njpwerner.autodocstring",
