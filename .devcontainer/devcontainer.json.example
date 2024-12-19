@@ -1,7 +1,14 @@
 {
   "name": "Torch GPU",
-  "build": { "dockerfile": "Dockerfile" },
-  "runArgs": ["--gpus", "all", "--shm-size", "8gb"],
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "runArgs": [
+    "--gpus",
+    "all",
+    "--shm-size",
+    "8gb"
+  ],
   "remoteUser": "vscode",
   "customizations": {
     "vscode": {
