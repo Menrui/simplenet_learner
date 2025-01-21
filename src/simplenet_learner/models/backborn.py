@@ -10,6 +10,8 @@ else:
     except ImportError:
         from typing_extensions import Literal
 
+from abc import ABC, abstractmethod
+
 from torch import fx
 from torchvision.models import (
     resnet18,
@@ -21,10 +23,20 @@ from torchvision.models import (
 from torchvision.models.feature_extraction import create_feature_extractor
 
 
-class Backborn(nn.Module):
+class Backborn(nn.Module, ABC):
+    @abstractmethod
+    def get_feature_extraction_model(
+        self, layers_dict: dict[str, str]
+    ) -> fx.GraphModule:
+        pass
+
+
+class Resnet(Backborn):
     def __init__(
         self,
-        arch: Literal["resnet18", "resnet50", "resnet101", "wide_resnet50_2", "wide_resnet101_2"],
+        arch: Literal[
+            "resnet18", "resnet50", "resnet101", "wide_resnet50_2", "wide_resnet101_2"
+        ],
         pretrain: bool = True,
     ) -> None:
         super().__init__()

@@ -2,18 +2,21 @@ from typing import Optional
 
 import torch
 from lightning import LightningModule
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from torch import nn
 
+from src.simplenet_learner.models.backborn import Backborn
 from src.simplenet_learner.models.optimizers import get_optimizer
 from src.simplenet_learner.models.schedulers import get_lr_sheduler
 from src.simplenet_learner.utils.noise_generator import NoiseGenerator
+from src.simplenet_learner.utils.patches import extract_patches_from_tensor
 
 
 class SimpleNetModule(LightningModule):
     def __init__(
         self,
-        backborn: nn.Module,
+        backborn: Backborn,
+        backborn_layers_cfg: DictConfig,
         projection: Optional[nn.Module],
         descriminator: nn.Module,
         criterion,
@@ -26,7 +29,10 @@ class SimpleNetModule(LightningModule):
         super().__init__()
 
         # networks
-        self.backborn = backborn
+        backborn_layers = OmegaConf.to_container(backborn_layers_cfg)
+        self.backborn = backborn.get_feature_extraction_model(
+            layers_dict=backborn_layers
+        )
         self.projection = projection
         self.descriminator = descriminator
 
@@ -54,6 +60,13 @@ class SimpleNetModule(LightningModule):
 
     def forward(self, x):
         return self.model(x)
+
+    def _embed(self, images: torch.Tensor):
+        features_dict: dict[str, torch.Tensor] = self.backborn(images)
+        features = [features_dict[layer] for layer in features_dict]
+
+        patches = [extract_patches_from_tensor(f) for f in features]
+        patch_shapes = []
 
     def training_step(self, batch, batch_idx):
         x, y = batch
