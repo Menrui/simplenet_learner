@@ -255,7 +255,6 @@ class SimpleNetModule(LightningModule):
 
     def on_validation_epoch_end(self):
         self.trainer.save_checkpoint("last.ckpt")
-        print("last.ckpt saved")
 
     def test_step(self, batch, batch_idx):
         x = batch[0]
