@@ -4,6 +4,9 @@ import torchvision.transforms.functional as F
 from PIL.Image import Image
 from torch import Tensor
 
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
 
 class LongsideResizeSquarePadding:
     def __init__(

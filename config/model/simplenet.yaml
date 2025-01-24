@@ -1,0 +1,64 @@
+_target_: src.simplenet_learner.models.simplenet.SimpleNetModule
+
+anomaly_threshold: 0.8
+size_of_predict_mask:
+  - ${datamodule.transform_cfg.crop_h}
+  - ${datamodule.transform_cfg.crop_w}
+
+backborn:
+  _target_: src.simplenet_learner.models.networks.backborn.Resnet
+  arch: resnet18
+  pretrain: True
+
+backborn_layers_cfg:
+  layer2: out1
+  layer3: out2
+
+projection:
+  _target_: src.simplenet_learner.models.networks.projection.Projection
+  in_channel: ${model.embed_preprocessor_cfg.output_dim}
+  out_channel: ${model.embed_preprocessor_cfg.output_dim}
+
+descriminator:
+  _target_: src.simplenet_learner.models.networks.descriminator.Descriminator
+  in_channel: ${model.projection.out_channel}
+  num_layer: 3
+  reduce_rate: 1.5
+
+embed_preprocessor_cfg:
+  output_dim: 768
+
+embed_aggregator_cfg:
+  output_dim: ${model.embed_preprocessor_cfg.output_dim}
+
+projection_optimizer_cfg:
+  name: AdamW
+  lr: 0.0001
+  betas:
+    - 0.9
+    - 0.999
+  eps: 1e-8
+  weight_decay: 0
+
+projection_lr_scheduler_cfg: null
+
+descriminator_optimizer_cfg:
+  name: Adam
+  lr: 0.0002
+  betas:
+    - 0.9
+    - 0.999
+  eps: 1e-8
+  weight_decay: 0
+
+descriminator_lr_scheduler_cfg:
+  name: CosineAnnealingLR
+  T_max: ${trainer.max_epochs}
+  eta_min: 8e-5
+
+noise_generator:
+  _target_: src.simplenet_learner.utils.noise_generator.NoiseGenerator
+  noise_std: 0.05
+  noise_type: normal
+  noise_scaling: 1.1
+  num_clsses: 1

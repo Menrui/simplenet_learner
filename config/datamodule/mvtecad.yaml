@@ -1,0 +1,14 @@
+_target_: simplenet_learner.datamodules.mvtecad_lit.MVTecadLitDataModule
+
+data_dir: ${data_dir}/mvtecad
+category: bottle
+transform_cfg:
+  resize_h: 256
+  resize_w: 256
+  h_flip_p: 0.5
+  v_flip_p: 0.5
+  crop_h: 224
+  crop_w: 224
+batch_size: 4
+num_workers: 4
+pin_memory: True

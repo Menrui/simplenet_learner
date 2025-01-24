@@ -54,4 +54,17 @@ class Resnet(Backborn):
     def get_feature_extraction_model(
         self, layers_dict: dict[str, str]
     ) -> fx.GraphModule:
+        """
+        Creates a feature extraction model based on the provided layers dictionary.
+        Args:
+            layers_dict (dict[str, str]): A dictionary where keys are layer names
+                                          and values are the corresponding output names.
+        Returns:
+            fx.GraphModule: A feature extraction model.
+
+        Example:
+            >>> layers_dict = {"layer1": "output1", "layer2": "output2"}
+            >>> feature_extractor = self.get_feature_extraction_model(layers_dict)
+        """
+
         return create_feature_extractor(self.model, layers_dict)
