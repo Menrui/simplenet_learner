@@ -1,5 +1,6 @@
 _target_: lightning.Trainer
 
+accelerator: "gpu" # CPU or GPU
 devices: -1 # 使用するGPUの枚数
 
 min_epochs: 1

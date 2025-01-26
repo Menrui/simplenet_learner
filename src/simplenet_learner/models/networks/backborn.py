@@ -18,7 +18,12 @@ from torchvision.models import (
     resnet50,
     resnet101,
     wide_resnet50_2,
-    wide_resnet101_2,
+    wide_resnet101_2, 
+    ResNet18_Weights,
+    ResNet50_Weights,
+    ResNet101_Weights,
+    Wide_ResNet50_2_Weights,
+    Wide_ResNet101_2_Weights
 )
 from torchvision.models.feature_extraction import create_feature_extractor
 
@@ -41,14 +46,14 @@ class Resnet(Backborn):
     ) -> None:
         super().__init__()
         self.model = {
-            "resnet18": resnet18(pretrained=pretrain, progress=True),
-            "resnet50": resnet50(pretrained=pretrain, progress=True),
-            "resnet101": resnet101(pretrained=pretrain, progress=True),
-            "wide_resnet50_2": wide_resnet50_2(pretrained=pretrain, progress=True),
-            "wide_resnet101_2": wide_resnet101_2(pretrained=pretrain, progress=True),
+            "resnet18": resnet18(weights=ResNet18_Weights.DEFAULT if pretrain is True else None, progress=True),
+            "resnet50": resnet50(weights=ResNet50_Weights.DEFAULT, progress=True),
+            "resnet101": resnet101(weights=ResNet101_Weights.DEFAULT, progress=True),
+            "wide_resnet50_2": wide_resnet50_2(weights=Wide_ResNet50_2_Weights.DEFAULT, progress=True),
+            "wide_resnet101_2": wide_resnet101_2(weights=Wide_ResNet101_2_Weights.DEFAULT, progress=True),
         }.get(
             arch,
-            resnet18(pretrained=pretrain, progress=True),
+            resnet18(ResNet18_Weights.DEFAULT, progress=True),
         )
 
     def get_feature_extraction_model(

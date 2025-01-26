@@ -15,7 +15,7 @@ from simplenet_learner.utils.embed_preprocessor import (
     EmbeddingAggregator,
     EmbeddingPreprocessor,
 )
-from simplenet_learner.utils.metric import compute_imagewise_retrieval_metrics
+from simplenet_learner.utils.metric import compute_imagewise_retrieval_metrics, compute_pixelwise_retrieval_metrics
 from simplenet_learner.utils.noise_generator import NoiseGenerator
 from simplenet_learner.utils.patch_utils import (
     compute_image_score_from_patches,
@@ -271,7 +271,7 @@ class SimpleNetModule(LightningModule):
         self.test_step_outputs.append(
             {
                 "gt_masks": gt_masks.cpu().numpy(),
-                "gt_labels": gt_labels.cpu().numpy(),
+                "gt_labels": gt_labels.cpu().numpy().tolist(),
                 "image_scores": image_scores,
                 "segmentation_masks": segmentation_masks,
                 "interpolated_features": interpolated_features,
@@ -371,15 +371,18 @@ class SimpleNetModule(LightningModule):
                 .reshape(-1, 1, 1, 1)
             )
             normalized_segmentation_masks = np.zeros_like(segmentation_masks_np)
-            for min_score, max_scores in zip(min_scores, max_scores):
-                normalized_segmentation_masks += (segmentation_masks_np - min_score) / (
-                    max_scores - min_score
-                )
-            normalized_segmentation_masks /= len(segmentation_masks_np)
 
-            pixelwise_auroc = compute_imagewise_retrieval_metrics(
-                anomaly_prediction_weights=normalized_segmentation_masks,
-                anomaly_ground_truth_labels=gt_segmentation_masks,
+            for i in range(len(segmentation_masks_np)):
+                normalized_segmentation_masks[i] = (
+                    (segmentation_masks_np[i] - min_scores[i]) /
+                    (max_scores[i] - min_scores[i])
+                )
+            print(normalized_segmentation_masks.shape)
+            print(normalized_segmentation_masks.max(), normalized_segmentation_masks.min())
+
+            pixelwise_auroc = compute_pixelwise_retrieval_metrics(
+                anomaly_segmentations=normalized_segmentation_masks,
+                ground_truth_masks=gt_segmentation_masks,
             )["auroc"]
 
         return auroc, pixelwise_auroc

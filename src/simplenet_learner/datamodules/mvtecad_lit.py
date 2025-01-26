@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Optional, Union
 
@@ -115,6 +116,7 @@ class MVTecadLitDataModule(LightningDataModule):
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            persistent_workers=(os.name == 'nt'),
         )
 
     def val_dataloader(self):
@@ -124,6 +126,7 @@ class MVTecadLitDataModule(LightningDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            persistent_workers=(os.name == 'nt'),
         )
 
     def test_dataloader(self):
@@ -133,4 +136,5 @@ class MVTecadLitDataModule(LightningDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            persistent_workers=(os.name == 'nt'),
         )
