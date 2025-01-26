@@ -292,6 +292,8 @@ class SimpleNetModule(LightningModule):
             interpolated_features.extend(output["interpolated_features"])
             gt_masks.extend(output["gt_masks"])
             gt_labels.extend(output["gt_labels"])
+        
+        # calculate metrics
         auroc, pixelwise_auroc = self.evaluate(
             image_scores=image_scores,
             segmentation_masks=segmentation_masks,
@@ -343,7 +345,7 @@ class SimpleNetModule(LightningModule):
         segmentation_masks: list[np.ndarray],
         gt_image_labels: list[np.ndarray],
         gt_segmentation_masks: list[np.ndarray],
-    ):
+    ) -> tuple[float, float]:
         image_scores_np = np.squeeze(np.array(image_scores))
         image_min_score = image_scores_np.min(axis=-1)
         image_max_score = image_scores_np.max(axis=-1)
