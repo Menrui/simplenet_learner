@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import Optional, Union
 
+from simplenet_learner.utils import get_logger
 import torch
 from omegaconf import DictConfig
-from pytorch_lightning import LightningDataModule
+from lightning import LightningDataModule
 from torchvision import transforms
 
 from simplenet_learner.datamodules.components.genericad import (
@@ -14,6 +15,7 @@ from simplenet_learner.datamodules.components.transforms import (
     IMAGENET_STD,
 )
 
+logger = get_logger(__name__)
 
 class GenericMVTecLitDataModule(LightningDataModule):
     def __init__(
@@ -104,6 +106,8 @@ class GenericMVTecLitDataModule(LightningDataModule):
             self.train_dataset, self.val_dataset = torch.utils.data.random_split(
                 full_dataset, [train_size, val_size]
             )
+            logger.info(f"  - Training dataset size: {train_size}")
+            logger.info(f"  - Validation dataset size: {val_size}")
 
         if stage == "test" or stage is None:
             # test ディレクトリが無い、あるいは空の場合は FileNotFoundError が発生するよう実装している
@@ -115,6 +119,7 @@ class GenericMVTecLitDataModule(LightningDataModule):
                 transform=self.test_transform,
                 mask_transform=self.mask_transform,
             )
+            logger.info(f"  - Test dataset size: {len(self.test_dataset)}")
 
     def train_dataloader(self):
         if not hasattr(self, "train_dataset"):

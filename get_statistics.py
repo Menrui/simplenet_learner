@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Union
 from hydra import compose, initialize
@@ -25,6 +26,8 @@ def predict(config_path: Union[str, Path], ckpt_path: Union[str, Path], input_di
         config = compose(config_name=str(config_path.stem), return_hydra_config=True)
         output = get_statistics_pipeline(config, ckpt_path, input_dir, resize_shape=(224, 224))
     
+    with open(ckpt_path.parent / "statistics.json", "w") as f:
+        json.dump(output, f)
     return output
 
 if __name__ == "__main__":

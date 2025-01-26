@@ -1,0 +1,14 @@
+_target_: simplenet_learner.datamodules.genericad_lit.GenericMVTecLitDataModule
+
+data_dir: ${data_dir}/
+category: sol001
+transform_cfg:
+  resize_h: 1024
+  resize_w: 683
+  h_flip_p: 0.0
+  v_flip_p: 0.0
+  crop_h: 1024
+  crop_w: 683
+batch_size: 4
+num_workers: 4
+pin_memory: True

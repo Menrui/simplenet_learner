@@ -55,6 +55,7 @@ class GenericAnomalyDetectionDataset(Dataset):
         phase: str = "train",
         transform=None,
         mask_transform=None,
+        ext: tuple[str] = (".png", ".jpg", "jpeg", ".bmp"),
     ):
         super().__init__()
         if isinstance(root, str):
@@ -64,6 +65,7 @@ class GenericAnomalyDetectionDataset(Dataset):
         self.phase = phase
         self.transform = transform
         self.mask_transform = mask_transform
+        self.ext = ext
 
         # イメージとマスクのパスを保持するリスト
         self.image_paths: List[Path] = []
@@ -83,8 +85,8 @@ class GenericAnomalyDetectionDataset(Dataset):
             if not train_good_dir.is_dir():
                 # train/good/ ディレクトリが存在しない場合はエラーにするか、空のままにするかは設計次第
                 raise FileNotFoundError(f"Train directory not found: {train_good_dir}")
-            # すべてのPNG画像をリストアップ
-            self.image_paths = sorted(train_good_dir.glob("*.png"))
+            # すべてのPNG or JPG or BMP画像をリストアップ
+            self.image_paths = [p for p in train_good_dir.iterdir() if p.suffix.lower() in self.ext]
             # 全部良品なのでマスクは None
             self.mask_paths = [None] * len(self.image_paths)
 
@@ -101,7 +103,8 @@ class GenericAnomalyDetectionDataset(Dataset):
             gt_mask_dir = category_path / "gt_mask"
 
             for subfolder in subfolders:
-                image_files = sorted(subfolder.glob("*.png"))
+                # image_files = sorted(subfolder.glob("*.png"))
+                image_files = [p for p in subfolder.iterdir() if p.suffix.lower() in self.ext]
                 if subfolder.name == "good":
                     # 良品はマスク = None
                     for img_path in image_files:

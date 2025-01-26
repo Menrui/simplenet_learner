@@ -72,10 +72,10 @@ def get_statistics_pipeline(
     # calculate statistics
     segmentations_np = np.array(segmentations)
     output = {
-        "mean": np.mean(segmentations_np),
-        "std": np.std(segmentations_np),
-        "max": np.max(segmentations_np),
-        "min": np.min(segmentations_np)
+        "mean": float(np.mean(segmentations_np)),
+        "std": float(np.std(segmentations_np)),
+        "max": float(np.max(segmentations_np)),
+        "min": float(np.min(segmentations_np))
     }
 
 
