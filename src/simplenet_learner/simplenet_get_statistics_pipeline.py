@@ -1,20 +1,21 @@
 from pathlib import Path
 from typing import Optional, Union
 
-from tqdm import tqdm
-import numpy as np
 import hydra
-from simplenet_learner.models.simplenet import SimpleNetModule
-from simplenet_learner.datamodules.components.directory_image import DirectoryImageDataset
+import numpy as np
 import torch
 from omegaconf import DictConfig
-from PIL import Image
 from torchvision import transforms
+from tqdm import tqdm
 
+from simplenet_learner.datamodules.components.directory_image import (
+    DirectoryImageDataset,
+)
 from simplenet_learner.datamodules.components.transforms import (
     IMAGENET_MEAN,
     IMAGENET_STD,
 )
+from simplenet_learner.models.simplenet import OriginalSimplenetModule
 
 
 def get_statistics_pipeline(
@@ -22,7 +23,7 @@ def get_statistics_pipeline(
     ckpt_path: Path,
     input_data_dir: Union[str, Path],
     resize_shape: tuple[int, int],
-) -> Optional[float]:
+) -> Optional[dict[str, float]]:
     """Contains the prediction pipeline.
 
     Args:
@@ -51,12 +52,21 @@ def get_statistics_pipeline(
             # `load_state_dict` 用にキーから "backborn." を取り除いたほうが良い場合が多い
             new_key = k.replace("backborn.", "")
             backborn_dict[new_key] = v
-    projection_dict = {k.replace("projection.", ""): v for k, v in full_state_dict.items() if k.startswith("projection.")}
-    descriminator_dict = {k.replace("descriminator.", ""): v for k, v in full_state_dict.items() if k.startswith("descriminator.")}
+    projection_dict = {
+        k.replace("projection.", ""): v
+        for k, v in full_state_dict.items()
+        if k.startswith("projection.")
+    }
+    descriminator_dict = {
+        k.replace("descriminator.", ""): v
+        for k, v in full_state_dict.items()
+        if k.startswith("descriminator.")
+    }
 
-    model: SimpleNetModule = hydra.utils.instantiate(config.model)
+    model: OriginalSimplenetModule = hydra.utils.instantiate(config.model)
     model.backborn.load_state_dict(backborn_dict, strict=False)
-    model.projection.load_state_dict(projection_dict, strict=False)
+    if model.projection is not None:
+        model.projection.load_state_dict(projection_dict, strict=False)
     model.descriminator.load_state_dict(descriminator_dict, strict=False)
     model.eval()
 
@@ -68,15 +78,14 @@ def get_statistics_pipeline(
         for input_data in tqdm(dataloader):
             _, mask, _ = model(input_data)
             segmentations.extend(mask)
-    
+
     # calculate statistics
     segmentations_np = np.array(segmentations)
     output = {
         "mean": float(np.mean(segmentations_np)),
         "std": float(np.std(segmentations_np)),
         "max": float(np.max(segmentations_np)),
-        "min": float(np.min(segmentations_np))
+        "min": float(np.min(segmentations_np)),
     }
-
 
     return output

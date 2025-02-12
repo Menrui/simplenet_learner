@@ -27,7 +27,7 @@ from simplenet_learner.utils.patch_utils import (
 )
 
 
-class SimpleNetModule(LightningModule):
+class OriginalSimplenetModule(LightningModule):
     def __init__(
         self,
         backborn: Backborn,

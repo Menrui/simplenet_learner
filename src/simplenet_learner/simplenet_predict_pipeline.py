@@ -1,9 +1,8 @@
 from pathlib import Path
 from typing import Optional, Union
 
-import numpy as np
 import hydra
-from simplenet_learner.models.simplenet import SimpleNetModule
+import numpy as np
 import torch
 from omegaconf import DictConfig
 from PIL import Image
@@ -13,6 +12,7 @@ from simplenet_learner.datamodules.components.transforms import (
     IMAGENET_MEAN,
     IMAGENET_STD,
 )
+from simplenet_learner.models.simplenet import OriginalSimplenetModule
 
 
 def predict_pipeline(
@@ -51,10 +51,18 @@ def predict_pipeline(
             # `load_state_dict` 用にキーから "backborn." を取り除いたほうが良い場合が多い
             new_key = k.replace("backborn.", "")
             backborn_dict[new_key] = v
-    projection_dict = {k.replace("projection.", ""): v for k, v in full_state_dict.items() if k.startswith("projection.")}
-    descriminator_dict = {k.replace("descriminator.", ""): v for k, v in full_state_dict.items() if k.startswith("descriminator.")}
+    projection_dict = {
+        k.replace("projection.", ""): v
+        for k, v in full_state_dict.items()
+        if k.startswith("projection.")
+    }
+    descriminator_dict = {
+        k.replace("descriminator.", ""): v
+        for k, v in full_state_dict.items()
+        if k.startswith("descriminator.")
+    }
 
-    model: SimpleNetModule = hydra.utils.instantiate(config.model)
+    model: OriginalSimplenetModule = hydra.utils.instantiate(config.model)
     model.backborn.load_state_dict(backborn_dict, strict=False)
     model.projection.load_state_dict(projection_dict, strict=False)
     model.descriminator.load_state_dict(descriminator_dict, strict=False)
