@@ -12,7 +12,7 @@ from simplenet_learner.datamodules.components.transforms import (
     IMAGENET_MEAN,
     IMAGENET_STD,
 )
-from simplenet_learner.models.simplenet import OriginalSimplenetModule
+from simplenet_learner.models.simplenet_module import OriginalSimplenetModule
 
 
 def predict_pipeline(

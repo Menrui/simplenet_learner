@@ -18,10 +18,37 @@ class Projection(nn.Module):
                     f"projection_{i}", nn.Linear(in_channel, out_channel)
                 )
             else:
-                (
-                    self.layers.add_module(
-                        f"projection_{i}",
+                self.layers.add_module(
+                    f"projection_{i}",
+                    nn.Sequential(
                         nn.Linear(in_channel, out_channel),
+                        nn.LeakyReLU(0.2),
+                    ),
+                )
+
+    def forward(self, x):
+        return self.layers(x)
+
+
+class Projection2D(nn.Module):
+    def __init__(
+        self, in_channel: int, out_channel: Optional[int] = None, num_layers: int = 1
+    ):
+        super(Projection2D, self).__init__()
+
+        if out_channel is None:
+            out_channel = in_channel
+        self.layers = nn.Sequential()
+        for i in range(num_layers):
+            if num_layers == 1:
+                self.layers.add_module(
+                    f"projection_{i}", nn.Conv2d(in_channel, out_channel, kernel_size=1)
+                )
+            else:
+                self.layers.add_module(
+                    f"projection_{i}",
+                    nn.Sequential(
+                        nn.Conv2d(in_channel, out_channel, kernel_size=1),
                         nn.LeakyReLU(0.2),
                     ),
                 )

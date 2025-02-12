@@ -1,4 +1,4 @@
-_target_: src.simplenet_learner.models.simplenet.OriginalSimplenetModule
+_target_: src.simplenet_learner.models.simplenet_module.OriginalSimplenetModule
 
 anomaly_threshold: 0.8
 size_of_predict_mask:
