@@ -4,7 +4,7 @@ from omegaconf import DictConfig
 from torch import optim
 
 
-def get_lr_sheduler(
+def get_lr_scheduler(
     optimizer: optim.Optimizer, cfg: Optional[DictConfig]
 ) -> Optional[optim.lr_scheduler.LRScheduler]:
     if cfg is None:

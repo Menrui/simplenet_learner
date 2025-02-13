@@ -72,10 +72,14 @@ class NoiseGenerator2D:
         noise_std: float = 0.05,
         noise_type: str = "normal",
         noise_scaling: float = 1.1,
-        num_clsses: int = 1,  # クラス数
+        num_clsses: int = 1,
     ):
         """
-        2次元入力 x: (B, H, W) に対して、学習クラスIDをもとにノイズを付与するジェネレータ。
+        Args:
+            noise_std (float): ノイズの標準偏差の初期値 (クラス0用)
+            noise_type (str): ノイズの種類 ("normal" のみ実装)
+            noise_scaling (float): クラスIDに応じたノイズ強度の倍率
+            num_clsses (int): クラス数
         """
         self.noise_std = noise_std
         self.noise_type = noise_type
@@ -84,55 +88,67 @@ class NoiseGenerator2D:
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         """
-        x の形状: (B, H, W)
+        入力テンソル x (B, C, H, W) と同じ形状のノイズを生成します。
+
+        クラスIDをバッチ単位でランダムに決定し、ノイズを重み付けして返す。
+
+        Args:
+            x (torch.Tensor): 形状 (B, C, H, W)
 
         Returns:
-            noise: x と同じ形状 (B, H, W) のノイズ
+            torch.Tensor: 生成されたノイズ (B, C, H, W)
         """
-        if x.dim() != 3:
-            raise ValueError(f"Input tensor must be 3D: (B, H, W). Got: {x.shape}")
+        if x.dim() != 4:
+            raise ValueError(f"Input must be 4D (B, C, H, W). Got: {x.shape}")
 
-        # (B,) のランダムなクラスIDを生成
-        noise_idxs = torch.randint(
-            low=0, high=self.num_clsses, size=(x.size(0),), device=x.device
-        )
-        # (B, num_clsses) の One-hot
+        B, C, H, W = x.shape
+
+        # バッチごとにクラスIDをランダムに割り当て (shape: (B,))
+        noise_idxs = torch.randint(0, self.num_clsses, (B,), device=x.device)
+
+        # (B, num_clsses) のワンホット表現
         noise_one_hot = torch.nn.functional.one_hot(
             noise_idxs, num_classes=self.num_clsses
         ).to(x.device)
 
+        # 各クラス用のノイズをスタック
+        #  => shape: (B, num_clsses, C, H, W)
         if self.noise_type == "normal":
-            # それぞれのクラス用のノイズをスタック
-            #  => shape: (B, num_clsses, H, W)
             noise = torch.stack(
                 [
                     torch.normal(
-                        mean=0,
+                        mean=0.0,
                         std=self.noise_std * (self.noise_scaling**i),
-                        size=x.shape,  # (B, H, W)
+                        size=x.size(),  # (B, C, H, W)
                         device=x.device,
                     )
                     for i in range(self.num_clsses)
                 ],
                 dim=1,
-            )  # stacking along dimension=1
-            # ここで noise の shape は (B, num_clsses, H, W)
+            )  # stacking along dim=1
         else:
-            raise ValueError(f"Unknown noise type {self.noise_type}")
+            raise ValueError(f"Unknown noise type '{self.noise_type}'")
 
-        # (B, num_clsses) の One-hot を、(B, num_clsses, 1, 1) にしてブロードキャスト
-        # => (B, num_clsses, H, W) と乗算可能
-        noise_one_hot = noise_one_hot.unsqueeze(-1).unsqueeze(-1)
+        # noise_one_hot の shape: (B, num_clsses)
+        # => (B, num_clsses, 1, 1, 1) に拡張してブロードキャスト
+        noise_one_hot = noise_one_hot.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+        # => shape: (B, num_clsses, 1, 1, 1)
 
-        # 選択されたクラスIDに対応するノイズだけを残して合計
-        # => shape: (B, H, W)
+        # 要素ごとにクラスIDに該当するノイズだけを残して合計
+        # => shape: (B, C, H, W)
         noise = (noise * noise_one_hot).sum(dim=1)
 
         return noise
 
     def add_noise(self, x: torch.Tensor) -> torch.Tensor:
         """
-        生成したノイズを x に加えて返す
+        入力に生成したノイズを加えて返す。
+
+        Args:
+            x (torch.Tensor): 形状 (B, C, H, W)
+
+        Returns:
+            torch.Tensor: x + noise
         """
-        noise = self.__call__(x)
+        noise = self(x)  # (B, C, H, W)
         return x + noise

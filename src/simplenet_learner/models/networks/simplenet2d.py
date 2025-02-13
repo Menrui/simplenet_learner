@@ -3,8 +3,8 @@ from typing import Literal
 import torch.nn as nn
 
 from simplenet_learner.models.networks.backborn import ResnetFeatureExtractor
-from simplenet_learner.models.networks.descriminator import Descriminator
-from simplenet_learner.models.networks.projection import Projection
+from simplenet_learner.models.networks.descriminator import Descriminator2D
+from simplenet_learner.models.networks.projection import Projection2D
 
 
 class Simplenet2D(nn.Module):
@@ -28,10 +28,10 @@ class Simplenet2D(nn.Module):
             for paaram in self.backborn.parameters():
                 paaram.requires_grad = False
 
-        self.projection = Projection(
+        self.projection = Projection2D(
             in_channel=projection_channel, num_layers=projection_layer_num
         )
-        self.descriminator = Descriminator(
+        self.descriminator = Descriminator2D(
             in_channel=projection_channel,
             num_layer=descriminator_layer_num,
             reduce_rate=descriminator_reduce_rate,

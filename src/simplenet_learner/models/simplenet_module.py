@@ -9,7 +9,7 @@ from torch import nn
 
 from simplenet_learner.models.networks.backborn import Backborn
 from simplenet_learner.models.optimizers import get_optimizer
-from simplenet_learner.models.schedulers import get_lr_sheduler
+from simplenet_learner.models.schedulers import get_lr_scheduler
 from simplenet_learner.utils.embed_postprocessor import RescaleSegmentator
 from simplenet_learner.utils.embed_preprocessor import (
     EmbeddingAggregator,
@@ -63,13 +63,13 @@ class OriginalSimplenetModule(LightningModule):
             self.projection_optimizer = get_optimizer(
                 self.projection, projection_optimizer_cfg
             )
-            self.projection_lr_scheduler = get_lr_sheduler(
+            self.projection_lr_scheduler = get_lr_scheduler(
                 self.projection_optimizer, projection_lr_scheduler_cfg
             )
         self.descriminator_optimizer = get_optimizer(
             self.descriminator, descriminator_optimizer_cfg
         )
-        self.descriminator_lr_scheduler = get_lr_sheduler(
+        self.descriminator_lr_scheduler = get_lr_scheduler(
             self.descriminator_optimizer, descriminator_lr_scheduler_cfg
         )
 

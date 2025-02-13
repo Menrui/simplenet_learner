@@ -15,7 +15,7 @@ from simplenet_learner.utils.noise_generator import NoiseGenerator2D
 from simplenet_learner.utils.patch_utils import compute_image_score_from_patches
 
 
-class simplenet2d_module(LightningModule):
+class Simplenet2DModule(LightningModule):
     def __init__(
         self,
         simplenet2d_cfg: DictConfig,
@@ -78,6 +78,7 @@ class simplenet2d_module(LightningModule):
         # Descriminator
         true_scores = self.model.forward_descriminator(true_features)
         fake_scores = self.model.forward_descriminator(fake_features)
+        _, _, score_h, score_w = true_scores.shape
 
         # Loss
         true_loss = torch.clip(-true_scores + self.anomaly_threshold, min=0)
@@ -91,14 +92,18 @@ class simplenet2d_module(LightningModule):
         descriminator_optimizer.step()
 
         # Scheduler step
-        if self.model.projection is not None:
+        if self.projection_lr_scheduler is not None:
             self.projection_lr_scheduler.step()
         if self.descriminator_lr_scheduler is not None:
             self.descriminator_lr_scheduler.step()
 
         # Metric
-        p_true = (true_scores >= self.anomaly_threshold).sum() / len(true_scores)
-        p_fake = (fake_scores >= self.anomaly_threshold).sum() / len(fake_scores)
+        p_true = (true_scores >= self.anomaly_threshold).sum() / len(
+            true_scores * score_h * score_w
+        )
+        p_fake = (fake_scores >= self.anomaly_threshold).sum() / len(
+            fake_scores * score_h * score_w
+        )
 
         # Log
         self.log("train_loss", loss, prog_bar=True, on_epoch=True)
@@ -117,7 +122,7 @@ class simplenet2d_module(LightningModule):
         return avg_loss
 
     def configure_optimizers(self):
-        if self.projection is not None:
+        if self.model.projection is not None:
             return self.projection_optimizer, self.descriminator_optimizer
         return self.descriminator_optimizer
 
@@ -143,23 +148,24 @@ class simplenet2d_module(LightningModule):
 
     def predict_step(self, batch, batch_idx, dataloader_idx):
         x = batch[0]
-        batch_size = len(x)
         score_maps = -self.model.forward(x)
-
-        score_maps = score_maps.reshape(
-            batch_size, score_maps[0].shape[0], score_maps[0].shape[1]
-        )
-        image_scores = compute_image_score_from_patches(score_maps)
+        batch_size, _, score_h, score_w = score_maps.shape
+        score_maps = score_maps.reshape(batch_size, score_h, score_w)
+        image_scores = compute_image_score_from_patches(score_maps.cpu().numpy())
+        # image_scores = score_maps.amax(dim=(-1, -2)).cpu().numpy()
 
         target_h, target_w = self.size_of_predict_mask
         resized_smoothing_scores = []
         for i in range(batch_size):
             resized_smoothing_scores.append(
                 torch.nn.functional.interpolate(
-                    image_scores[i].unsqueeze(0).unsqueeze(0),
+                    score_maps[i].unsqueeze(0).unsqueeze(0),
                     size=(target_h, target_w),
                     mode="bilinear",
-                ).squeeze()
+                )
+                .squeeze()
+                .cpu()
+                .numpy()
             )
         resized_smoothing_scores = [
             ndimage.gaussian_filter(x, sigma=1) for x in resized_smoothing_scores
@@ -217,12 +223,9 @@ class simplenet2d_module(LightningModule):
         return auroc, pixelwise_auroc
 
     def test_step(self, batch, batch_idx):
-        x = batch[0]
         gt_masks = batch[1]
         gt_labels = (gt_masks.reshape(gt_masks.shape[0], -1) > 0).any(dim=1).long()
-        if x.dim() == 3:
-            x = x.unsqueeze(0)
-        image_scores, score_maps = self.predict_step(x, batch_idx, 0)
+        image_scores, score_maps = self.predict_step(batch, batch_idx, 0)
 
         self.test_step_outputs.append(
             {
