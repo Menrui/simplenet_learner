@@ -34,7 +34,12 @@ def torch2onnx_pipeline(config: DictConfig, ckpt_path: str) -> None:
 
     logger.info("Converting model to ONNX:")
     model.eval()
-    dummy_input = torch.randn(1, 3, 224, 224)
+    dummy_input = torch.randn(
+        1,
+        3,
+        config.datamodule.transform_cfg.resize_h,
+        config.datamodule.transform_cfg.resize_w,
+    )
     onnx_path = Path(ckpt_path).with_suffix(".onnx")
     torch.onnx.export(model, dummy_input, onnx_path, verbose=True)
     logger.info(f"Model saved to: {onnx_path}")
