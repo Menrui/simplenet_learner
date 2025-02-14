@@ -25,17 +25,35 @@ class Simplenet2D(nn.Module):
             arch=backborn_arch, pretrained=backborn_pretrained
         )
         if not backborn_trainable:
-            for paaram in self.backborn.parameters():
-                paaram.requires_grad = False
+            for param in self.backborn.parameters():
+                param.requires_grad = False
+            self.backborn.eval()
 
         self.projection = Projection2D(
-            in_channel=projection_channel, num_layers=projection_layer_num
+            in_channel=self.get_backborn_channels(backborn_arch),
+            out_channel=projection_channel,
+            num_layers=projection_layer_num,
         )
         self.descriminator = Descriminator2D(
             in_channel=projection_channel,
             num_layer=descriminator_layer_num,
             reduce_rate=descriminator_reduce_rate,
         )
+
+    def get_backborn_channels(
+        self,
+        arch: Literal[
+            "resnet18", "resnet50", "resnet101", "wide_resnet50_2", "wide_resnet101_2"
+        ],
+    ) -> int:
+        if arch in ["resnet18"]:
+            return 384
+        elif arch in ["resnet50", "resnet101"]:
+            return 1536
+        elif arch in ["wide_resnet50_2", "wide_resnet101_2"]:
+            return 3072
+        else:
+            raise NotImplementedError
 
     def forward(self, x):
         x = self.backborn(x)

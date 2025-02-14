@@ -218,8 +218,8 @@ class OriginalSimplenetModule(LightningModule):
         )
 
         self.log("loss", loss, prog_bar=True, on_step=False, on_epoch=True)
-        self.log("p_true", p_true, prog_bar=True, on_step=False, on_epoch=True)
-        self.log("p_fake", p_fake, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("p_true", p_true, prog_bar=False, on_step=False, on_epoch=True)
+        self.log("p_fake", p_fake, prog_bar=False, on_step=False, on_epoch=True)
 
         return loss
 

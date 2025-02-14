@@ -128,10 +128,10 @@ class ResnetFeatureExtractor(nn.Module):
 
         if l2.shape[-2:] != l3.shape[-2:]:
             l3 = nn.functional.interpolate(l3, size=l2.shape[-2:], mode="bilinear")
-
         out = torch.cat([l2, l3], dim=1)
+
         out = nn.functional.avg_pool2d(
-            out, kernel_size=self.pool_kernel_size, stride=self.pool_stride
+            out, kernel_size=self.pool_kernel_size, stride=self.pool_stride, padding=1
         )
 
         return out

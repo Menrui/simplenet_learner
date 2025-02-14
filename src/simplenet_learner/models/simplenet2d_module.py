@@ -98,17 +98,17 @@ class Simplenet2DModule(LightningModule):
             self.descriminator_lr_scheduler.step()
 
         # Metric
-        p_true = (true_scores >= self.anomaly_threshold).sum() / len(
-            true_scores * score_h * score_w
+        p_true = (true_scores >= self.anomaly_threshold).sum() / (
+            len(true_scores) * score_h * score_w
         )
-        p_fake = (fake_scores >= self.anomaly_threshold).sum() / len(
-            fake_scores * score_h * score_w
+        p_fake = (fake_scores >= self.anomaly_threshold).sum() / (
+            len(fake_scores) * score_h * score_w
         )
 
         # Log
         self.log("train_loss", loss, prog_bar=True, on_epoch=True)
-        self.log("p_true", p_true, prog_bar=True, on_epoch=True)
-        self.log("p_fake", p_fake, prog_bar=True, on_epoch=True)
+        # self.log("p_true", p_true, prog_bar=False, on_epoch=True)
+        # self.log("p_fake", p_fake, prog_bar=False, on_epoch=True)
         self.training_step_outputs.append(
             {
                 "loss": loss,
@@ -133,12 +133,22 @@ class Simplenet2DModule(LightningModule):
 
         true_scores = self.model.forward_descriminator(true_features)
         fake_scores = self.model.forward_descriminator(fake_features)
+        _, _, score_h, score_w = true_scores.shape
 
         true_loss = torch.clip(-true_scores + self.anomaly_threshold, min=0)
         fake_loss = torch.clip(fake_scores + self.anomaly_threshold, min=0)
         loss = true_loss.mean() + fake_loss.mean()
 
+        p_true = (true_scores >= self.anomaly_threshold).sum() / (
+            len(true_scores) * score_h * score_w
+        )
+        p_fake = (fake_scores >= self.anomaly_threshold).sum() / (
+            len(fake_scores) * score_h * score_w
+        )
+
         self.log("val_loss", loss, prog_bar=True, on_epoch=True)
+        self.log("val_p_true", p_true, prog_bar=True, on_epoch=True)
+        self.log("val_p_fake", p_fake, prog_bar=True, on_epoch=True)
 
         return loss
 
@@ -256,4 +266,4 @@ class Simplenet2DModule(LightningModule):
         self.log("auroc", auroc, prog_bar=True, on_epoch=True)
         self.log("pixelwise_auroc", pixelwise_auroc, prog_bar=True, on_epoch=True)
         self.test_step_outputs = []
-        return image_scores
+        return auroc
