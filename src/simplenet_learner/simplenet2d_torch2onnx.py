@@ -37,8 +37,8 @@ def torch2onnx_pipeline(config: DictConfig, ckpt_path: str) -> None:
     dummy_input = torch.randn(
         1,
         3,
-        config.datamodule.transform_cfg.resize_h,
-        config.datamodule.transform_cfg.resize_w,
+        config.datamodule.transform_cfg.crop_h,
+        config.datamodule.transform_cfg.crop_w,
     )
     onnx_path = Path(ckpt_path).with_suffix(".onnx")
     torch.onnx.export(model, dummy_input, onnx_path, verbose=True)
