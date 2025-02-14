@@ -12,11 +12,10 @@ from lightning import (
 from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
 
-from simplenet_learner.utils import get_logger, log_hyperparameters
 from simplenet_learner.utils.logger import get_stream_logger
 
-
 logger = get_stream_logger(__name__)
+
 
 def testing_pipline(config: DictConfig, ckpt_path: str) -> Optional[float]:
     """
@@ -65,6 +64,8 @@ def testing_pipline(config: DictConfig, ckpt_path: str) -> Optional[float]:
     )
     logger.info(trainer.checkpoint_callbacks)
 
-    if config.get("test"):
-        logger.info("Start testing")
-        trainer.test(model, datamodule=datamodule, ckpt_path=ckpt_path)
+    # if config.get("test"):
+    logger.info("Start testing")
+    trainer.test(model, datamodule=datamodule, ckpt_path=ckpt_path)
+
+    return None

@@ -64,7 +64,8 @@ def predict_pipeline(
 
     model: OriginalSimplenetModule = hydra.utils.instantiate(config.model)
     model.backborn.load_state_dict(backborn_dict, strict=False)
-    model.projection.load_state_dict(projection_dict, strict=False)
+    if model.projection is not None:
+        model.projection.load_state_dict(projection_dict, strict=False)
     model.descriminator.load_state_dict(descriminator_dict, strict=False)
     model.eval()
 

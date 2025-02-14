@@ -4,7 +4,7 @@ from sklearn import metrics
 
 def compute_imagewise_retrieval_metrics(
     anomaly_prediction_weights, anomaly_ground_truth_labels
-):
+) -> dict[str, float]:
     """
     Computes retrieval statistics (AUROC, FPR, TPR).
 
@@ -30,7 +30,9 @@ def compute_imagewise_retrieval_metrics(
     return {"auroc": auroc, "fpr": fpr, "tpr": tpr, "threshold": thresholds}
 
 
-def compute_pixelwise_retrieval_metrics(anomaly_segmentations, ground_truth_masks):
+def compute_pixelwise_retrieval_metrics(
+    anomaly_segmentations, ground_truth_masks
+) -> dict[str, float]:
     """
     Computes pixel-wise statistics (AUROC, FPR, TPR) for anomaly segmentations
     and ground truth segmentation masks.

@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from lightning import LightningModule
+from matplotlib import pyplot as plt
 from omegaconf import DictConfig
 from scipy import ndimage
 
@@ -189,7 +190,7 @@ class Simplenet2DModule(LightningModule):
         score_maps: list[np.ndarray],
         gt_image_labels: list[np.ndarray],
         gt_masks: list[np.ndarray],
-    ) -> tuple[float, float]:
+    ) -> tuple[dict[str, float], dict[str, float]]:
         image_scores_np = np.squeeze(np.array(image_scores))
         image_min_score = image_scores_np.min(axis=-1)
         image_max_score = image_scores_np.max(axis=-1)
@@ -197,13 +198,19 @@ class Simplenet2DModule(LightningModule):
             image_max_score - image_min_score
         )
 
-        auroc = compute_imagewise_retrieval_metrics(
+        imagewise_metric = compute_imagewise_retrieval_metrics(
             anomaly_prediction_weights=normalized_image_scores,
             anomaly_ground_truth_labels=gt_image_labels,
-        )["auroc"]
+        )
 
         if len(score_maps) <= 0:
-            pixelwise_auroc = -1
+            # pixelwise_auroc = -1
+            pixelwise_metric = {
+                "auroc": -1.0,
+                "fpr": -1.0,
+                "tpr": -1.0,
+                "threshold": -1.0,
+            }
         else:
             score_maps_np = np.array(score_maps)
             min_scores = (
@@ -225,12 +232,12 @@ class Simplenet2DModule(LightningModule):
             # print(normalized_score_maps.shape)
             # print(normalized_score_maps.max(), normalized_score_maps.min())
 
-            pixelwise_auroc = compute_pixelwise_retrieval_metrics(
+            pixelwise_metric = compute_pixelwise_retrieval_metrics(
                 anomaly_segmentations=normalized_score_maps,
                 ground_truth_masks=gt_masks,
-            )["auroc"]
+            )
 
-        return auroc, pixelwise_auroc
+        return imagewise_metric, pixelwise_metric
 
     def test_step(self, batch, batch_idx):
         gt_masks = batch[1]
@@ -259,11 +266,54 @@ class Simplenet2DModule(LightningModule):
             gt_labels.extend(output["gt_labels"])
             gt_masks.extend(output["gt_masks"])
 
-        auroc, pixelwise_auroc = self.evalueate(
+        imagewise_metric, pixelwise_metric = self.evalueate(
             image_scores, score_maps, gt_labels, gt_masks
         )
+        auroc, fpr, tpr, _ = (
+            imagewise_metric["auroc"],
+            imagewise_metric["fpr"],
+            imagewise_metric["tpr"],
+            imagewise_metric["threshold"],
+        )
+        pixelwise_auroc = pixelwise_metric["auroc"]
 
         self.log("auroc", auroc, prog_bar=True, on_epoch=True)
         self.log("pixelwise_auroc", pixelwise_auroc, prog_bar=True, on_epoch=True)
         self.test_step_outputs = []
+
+        # plot histgram of anomaly scores by class
+        fig, ax = plt.subplots()
+        ax.set_xlabel("Anomaly Score")
+        ax.set_ylabel("Frequency")
+        ax.set_title("Anomaly Score Distribution")
+        normal_scores = np.array(image_scores)[np.array(gt_labels) == 0]
+        abnormal_scores = np.array(image_scores)[np.array(gt_labels) == 1]
+        ax.hist(
+            [normal_scores, abnormal_scores],
+            bins=50,
+            # color=["blue", "red"],
+            label=["Normal", "Abnormal"],
+            alpha=0.5,
+            histtype="stepfilled",
+        )
+        ax.legend()
+        ax.grid(
+            which="major",
+            axis="y",
+            linestyle="--",
+            linewidth=1,
+            color="gray",
+            alpha=0.8,
+        )
+        plt.savefig("anomaly_score_histgram.png")
+
+        # plot ROC curve
+        fig, ax = plt.subplots()
+        ax.set_xlabel("False Positive Rate")
+        ax.set_ylabel("True Positive Rate")
+        ax.set_title("ROC Curve (AUROC: {:.4f})".format(auroc))
+        ax.plot(fpr, tpr)
+        ax.grid()
+        plt.savefig("roc_curve.png")
+
         return auroc
