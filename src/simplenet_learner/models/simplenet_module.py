@@ -107,7 +107,7 @@ class OriginalSimplenetModule(LightningModule):
         image_scores, segmentation_masks, interpolated_features = self.predict_step(
             (x, None), 0
         )
-        return image_scores, segmentation_masks, interpolated_features
+        return segmentation_masks
 
     def _embed(self, images: torch.Tensor):
         features_dict: dict[str, torch.Tensor] = self.backborn(images)
@@ -362,7 +362,7 @@ class OriginalSimplenetModule(LightningModule):
         )["auroc"]
 
         if len(segmentation_masks) <= 0:
-            pixelwise_auroc = -1
+            pixelwise_auroc = -1.0
         else:
             segmentation_masks_np = np.array(segmentation_masks)
             min_scores = (

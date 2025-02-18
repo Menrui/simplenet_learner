@@ -63,6 +63,9 @@ class Simplenet2DModule(LightningModule):
 
         self.automatic_optimization = False
 
+    def forward(self, x):
+        return self.model.forward(x)
+
     def training_step(self, batch, batch_idx):
         if self.model.projection is not None:
             projection_optimizer, descriminator_optimizer = self.configure_optimizers()
