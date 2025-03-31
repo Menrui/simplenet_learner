@@ -87,3 +87,71 @@ uv sync
 ├─ src/
 └─ ...
 ```
+
+### トレーニングの実行
+
+学習は`train.py`を実行することで行えます。  
+configの管理には[hydra](https://hydra.cc/)を使用しているため、`config`ディレクトリ以下にあるyamlファイルを編集するか、コマンドライン引数で指定することで学習の設定を変更できます。
+
+```bash
+python train.py datamodule=mvtecad model=simplenet2d
+```
+
+学習の結果は`logs`ディレクトリ以下に保存されます。  
+`logs`以下のディレクトリは学習の実行ごとに作成され、保存先の形式は`config/log_dir/`以下の設定に従います。  
+学習の実行ごとに異なるディレクトリが作成されるため、過去の学習結果を上書きすることはありません。
+
+独自のデータセットを用いる場合、以下のように`train.py`を実行してください。
+
+```bash
+python train.py datamodule=generic datamodule.category=[your dataset_directory name] model=simplenet2d
+```
+
+`[your dataset_directory name]`には、`data/`以下に配置したデータセットが格納されているディレクトリ名を指定してください。  
+もし`data/`以下に独自データセット用のディレクトリを作成し、サブディレクトリにデータセットを格納する場合や、プロジェクト直下に配置されていないデータセットを使用する場合、以下のように`data_dir`を指定してください。
+
+```bash
+python train.py datamodule=generic datamodule.category=[your dataset_directory name] datamodule.data_dir=[your data_directory path] model=simplenet2d
+```
+
+`[your data_directory path]`には、データセットの親ディレクトリの絶対パスを指定してください。
+
+もし独自データセットにtestデータが存在しない場合、以下のように`train.py`を実行してください。
+
+```bash
+python train.py test=False datamodule=generic datamodule.category=[your dataset_directory name] model=simplenet2d
+```
+
+### ONNX変換の実行
+
+学習済みモデルをonnx形式に変換するには、`torch2onnx.py`を実行します。
+
+```bash
+python torch2onnx.py -c [your config file path] -p [your ckpt file path]
+```
+
+`[your config file path]`には、学習時に生成された`logs/`以下のディレクトリ内に格納されている`config/config.yaml`ファイルのパスを指定してください。  
+`[your ckpt file path]`には、学習済みモデルのckptファイルのパスを指定してください。  
+現状このコマンドは`train.py`を実行する際に`model=simplenet2d`を指定して生成されたモデルに対してのみ動作します。
+
+コマンドの実行後、`-p`オプションで指定されたckptファイルと同名のonnxファイルがckptファイルと同じディレクトリに保存されます。
+
+### データセットに対するモデル出力の統計情報の取得
+
+学習済みモデルを用いてデータセットに対するモデル出力の統計情報を取得するには、`get_statistics.py`を実行します。
+
+```bash
+python get_statistics.py -c [your config file path] -p [your ckpt file path] -i [your input data directory path]
+```
+
+`[your config file path]`には、学習時に生成された`logs/`以下のディレクトリ内に格納されている`config/config.
+yaml`ファイルのパスを指定してください。  
+`[your ckpt file path]`には、学習済みモデルのckptファイルのパスを指定してください。  
+`[your input data directory path]`には、モデル出力の統計情報を取得したい画像データが入っているディレクトリのパスを指定してください。
+
+コマンドの実行後、`-p`オプションで指定されたckptファイルと同じディレクトリに、`statistics.json`という名前のjsonファイルが保存されます。  
+このjsonファイルには、入力データに対するセグメンテーションマップの平均値、分散、最大値、最小値の情報が格納されています。
+
+## Configuration
+
+WIP
