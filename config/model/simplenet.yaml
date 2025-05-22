@@ -19,8 +19,8 @@ projection:
   in_channel: ${model.embed_preprocessor_cfg.output_dim}
   out_channel: ${model.embed_preprocessor_cfg.output_dim}
 
-descriminator:
-  _target_: src.simplenet_learner.models.networks.descriminator.Descriminator
+discriminator:
+  _target_: src.simplenet_learner.models.networks.discriminator.Discriminator
   in_channel: ${model.projection.out_channel}
   num_layer: 3
   reduce_rate: 1.5
@@ -42,7 +42,7 @@ projection_optimizer_cfg:
 
 projection_lr_scheduler_cfg: null
 
-descriminator_optimizer_cfg:
+discriminator_optimizer_cfg:
   name: Adam
   lr: 0.0002
   betas:
@@ -51,14 +51,14 @@ descriminator_optimizer_cfg:
   eps: 1e-8
   weight_decay: 0
 
-descriminator_lr_scheduler_cfg:
+discriminator_lr_scheduler_cfg:
   name: CosineAnnealingLR
   T_max: ${trainer.max_epochs}
   eta_min: 8e-5
 
 noise_generator:
   _target_: src.simplenet_learner.utils.noise_generator.NoiseGenerator
-  noise_std: 0.05
+  noise_std: 0.015
   noise_type: normal
   noise_scaling: 1.1
   num_clsses: 1

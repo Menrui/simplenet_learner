@@ -217,12 +217,12 @@ config/
   - `backborn_trainable`: バックボーンを学習可能にするかどうか
   - `projection_channel`: 射影チャンネル数
   - `projection_layer_num`: 射影層数
-  - `descriminator_layer_num`: 識別器層数
-  - `descriminator_reduce_rate`: 識別器縮小率
+  - `discriminator_layer_num`: 識別器層数
+  - `discriminator_reduce_rate`: 識別器縮小率
 - `projection_optimizer_cfg`: 射影ネットワークのオプティマイザー設定
   - `name`: オプティマイザー名（例：AdamW）
   - `lr`: 学習率
-- `descriminator_optimizer_cfg`: 識別器のオプティマイザー設定
+- `discriminator_optimizer_cfg`: 識別器のオプティマイザー設定
 - `noise_generator`: ノイズ生成器の設定
   - `noise_std`: ノイズの標準偏差
   - `noise_type`: ノイズの種類

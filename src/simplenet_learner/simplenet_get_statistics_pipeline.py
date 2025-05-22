@@ -47,7 +47,7 @@ def get_statistics_pipeline(
     full_state_dict = ckpt["state_dict"]
     # backborn_dict = {}
     # for k, v in full_state_dict.items():
-    #     # k は "backborn.xxx" や "descriminator.xxx" のようにLightningModuleから見た階層名が含まれる
+    #     # k は "backborn.xxx" や "discriminator.xxx" のようにLightningModuleから見た階層名が含まれる
     #     if k.startswith("backborn."):
     #         # `load_state_dict` 用にキーから "backborn." を取り除いたほうが良い場合が多い
     #         new_key = k.replace("backborn.", "")
@@ -57,17 +57,17 @@ def get_statistics_pipeline(
     #     for k, v in full_state_dict.items()
     #     if k.startswith("projection.")
     # }
-    # descriminator_dict = {
-    #     k.replace("descriminator.", ""): v
+    # discriminator_dict = {
+    #     k.replace("discriminator.", ""): v
     #     for k, v in full_state_dict.items()
-    #     if k.startswith("descriminator.")
+    #     if k.startswith("discriminator.")
     # }
 
     model: LightningModule = hydra.utils.instantiate(config.model)
     # model.backborn.load_state_dict(backborn_dict, strict=False)
     # if model.projection is not None:
     #     model.projection.load_state_dict(projection_dict, strict=False)
-    # model.descriminator.load_state_dict(descriminator_dict, strict=False)
+    # model.discriminator.load_state_dict(discriminator_dict, strict=False)
     model.load_state_dict(full_state_dict)
     model.eval()
 

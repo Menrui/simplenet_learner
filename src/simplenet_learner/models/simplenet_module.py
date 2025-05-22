@@ -33,13 +33,13 @@ class OriginalSimplenetModule(LightningModule):
         backborn: Backborn,
         backborn_layers_cfg: DictConfig,
         projection: Optional[nn.Module],
-        descriminator: nn.Module,
+        discriminator: nn.Module,
         embed_preprocessor_cfg: DictConfig,
         embed_aggregator_cfg: DictConfig,
         projection_optimizer_cfg: DictConfig,
         projection_lr_scheduler_cfg: DictConfig,
-        descriminator_optimizer_cfg: DictConfig,
-        descriminator_lr_scheduler_cfg: DictConfig,
+        discriminator_optimizer_cfg: DictConfig,
+        discriminator_lr_scheduler_cfg: DictConfig,
         noise_generator: NoiseGenerator,
         anomaly_threshold: float = 0.8,
         size_of_predict_mask: tuple[int, int] = (224, 224),
@@ -53,7 +53,7 @@ class OriginalSimplenetModule(LightningModule):
         )
         self.backborn.requires_grad_(False)
         self.projection: Optional[nn.Module] = projection
-        self.descriminator = descriminator
+        self.discriminator = discriminator
 
         # loss_fn
         self.anomaly_threshold = anomaly_threshold
@@ -66,11 +66,11 @@ class OriginalSimplenetModule(LightningModule):
             self.projection_lr_scheduler = get_lr_scheduler(
                 self.projection_optimizer, projection_lr_scheduler_cfg
             )
-        self.descriminator_optimizer = get_optimizer(
-            self.descriminator, descriminator_optimizer_cfg
+        self.discriminator_optimizer = get_optimizer(
+            self.discriminator, discriminator_optimizer_cfg
         )
-        self.descriminator_lr_scheduler = get_lr_scheduler(
-            self.descriminator_optimizer, descriminator_lr_scheduler_cfg
+        self.discriminator_lr_scheduler = get_lr_scheduler(
+            self.discriminator_optimizer, discriminator_lr_scheduler_cfg
         )
 
         # preprocessors
@@ -119,95 +119,106 @@ class OriginalSimplenetModule(LightningModule):
         ]
         features = [
             x[0] for x in patches
-        ]  # (B, N_patches, C, patch_size, patch_size)  N_patches = num_patches_height * num_patches_width
-        patch_shapes = [
-            x[1] for x in patches
-        ]  # [(num_patches_height, num_patches_width), ...]
-        reference_num_patches = patch_shapes[0]
+        ]  # (B, N_patches, C, patch_size, patch_size)  N_patches = spatial_height * spatial_width
+        patch_shapes = [x[1] for x in patches]  # [(spatial_height, spatial_width), ...]
+        reference_num_patches = patch_shapes[0]  # (spatial_height, spatial_width)
 
         for i in range(1, len(features)):
             _features = features[i]
-            patch_dims = patch_shapes[i]
+            patch_dims = patch_shapes[i]  # (spatial_height, spatial_width)
 
             _features = _features.reshape(
                 _features.shape[0],  # batch_size
-                patch_dims[0],  # N_patches_height
-                patch_dims[1],  # N_patches_width
+                patch_dims[0],  # spatial_height
+                patch_dims[1],  # spatial_width
                 *_features.shape[2:],  # C, patch_size, patch_size
             )
             # heightとwidthを最後の次元に移動
-            _features = _features.permute(0, -3, -2, -1, 1, 2)
+            _features = _features.permute(
+                0, -3, -2, -1, 1, 2
+            )  # (B, C, patch_size, patch_size, spatial_height, spatial_width)
             permute_base_shape = _features.shape
             _features = _features.reshape(
                 -1,
-                *_features.shape[-2:],  # N_patches_height, N_patches_width
+                *_features.shape[-2:],  # spatial_height, spatial_width
             )
             _features = F.interpolate(
-                _features.unsqueeze(1),  # (B*C, 1, N_patches_height, N_patches_width)
-                size=reference_num_patches,  # (N_patches_height, N_patches_width)
+                _features.unsqueeze(
+                    1
+                ),  # (B*C*patch_size*patch_size, 1, spatial_height, spatial_width)
+                size=reference_num_patches,  # (spatial_height, spatial_width)
                 mode="bilinear",
                 align_corners=False,
             )
             # サイズを補完後に次元の順序を戻す
-            _features = _features.squeeze(1)
+            _features = _features.squeeze(1)  # (B*C, spatial_height, spatial_width)
+
+            # (B, C, spatial_height, spatial_width, patch_size, patch_size)
             _features = _features.reshape(
                 *permute_base_shape[:-2],
                 reference_num_patches[0],
                 reference_num_patches[1],
             )
+
+            # (B, spatial_height, spatial_width, C, patch_size, patch_size)
             _features = _features.permute(0, -2, -1, 1, 2, 3)
             _features = _features.reshape(
                 len(_features),  # batch_size
-                -1,  # N_patches
+                -1,  # spatial_height * spatial_width
                 *_features.shape[-3:],  # C, patch_size, patch_size
             )
-            features[i] = _features
+            features[i] = _features  # (B, N_patches, C, patch_size, patch_size)
+        # (B, N_patches, C, patch_size, patch_size) -> (B*N_patches, C*patch_size*patch_size)
+        # N_patches = spatial_height * spatial_width
         features = [x.reshape(-1, *x.shape[-3:]) for x in features]
 
         features = self.embed_preprocessor(features)
         features = self.embed_aggregator(features)
 
+        # (B*spatial_height*spatial_width, C*patch_size*patch_size)
         return features, patch_shapes
 
     def training_step(self, batch, batch_idx):
         # get optimizer
         if self.projection is not None:
-            projection_optimizer, descriminator_optimizer = self.configure_optimizers()
+            projection_optimizer, discriminator_optimizer = self.configure_optimizers()
             projection_optimizer.zero_grad()
         else:
-            descriminator_optimizer = self.configure_optimizers()
+            discriminator_optimizer = self.configure_optimizers()
 
-        descriminator_optimizer.zero_grad()
+        discriminator_optimizer.zero_grad()
 
         # forward
         x = batch[0]
         embedding, _ = self._embed(x)
         true_features = self.projection(embedding)
+        print("projection: ", true_features.shape)
         noise = self.noise_generator(true_features)
         fake_features = true_features + noise
 
-        # descriminator
-        true_scores = self.descriminator(true_features)
-        fake_scores = self.descriminator(fake_features)
+        # discriminator
+        true_scores = self.discriminator(true_features)
+        fake_scores = self.discriminator(fake_features)
+        print("discriminator: ", true_scores.shape, fake_scores.shape)
 
         # loss
         p_true = (true_scores >= self.anomaly_threshold).sum() / len(true_scores)
         p_fake = (fake_scores >= self.anomaly_threshold).sum() / len(fake_scores)
         true_loss = torch.clip(-true_scores + self.anomaly_threshold, min=0)
-        fake_loss = torch.clip(fake_scores - self.anomaly_threshold, min=0)
+        fake_loss = torch.clip(fake_scores + self.anomaly_threshold, min=0)
 
         loss = true_loss.mean() + fake_loss.mean()
         loss.backward()
 
         if self.projection is not None:
             projection_optimizer.step()
-        descriminator_optimizer.step()
+        discriminator_optimizer.step()
 
         # scheduler
         if self.projection_lr_scheduler is not None:
             self.projection_lr_scheduler.step()
-        if self.descriminator_lr_scheduler is not None:
-            self.descriminator_lr_scheduler.step()
+        if self.discriminator_lr_scheduler is not None:
+            self.discriminator_lr_scheduler.step()
 
         self.training_step_outputs.append(
             {
@@ -225,8 +236,8 @@ class OriginalSimplenetModule(LightningModule):
 
     def configure_optimizers(self):
         if self.projection is not None:
-            return self.projection_optimizer, self.descriminator_optimizer
-        return self.descriminator_optimizer
+            return self.projection_optimizer, self.discriminator_optimizer
+        return self.discriminator_optimizer
 
     def on_training_epoch_end(self, outputs):
         avg_loss = torch.stack([x["loss"] for x in outputs]).mean()
@@ -240,21 +251,35 @@ class OriginalSimplenetModule(LightningModule):
         noise = self.noise_generator(true_features)
         fake_features = true_features + noise
 
-        true_scores = self.descriminator(true_features)
-        fake_scores = self.descriminator(fake_features)
+        true_scores = self.discriminator(true_features)
+        fake_scores = self.discriminator(fake_features)
 
         p_true = (true_scores.detach() >= self.anomaly_threshold).sum() / len(
             true_scores
         )
-        p_fake = (fake_scores.detach() >= self.anomaly_threshold).sum() / len(
+        p_fake = (fake_scores.detach() < -self.anomaly_threshold).sum() / len(
             fake_scores
         )
         true_loss = torch.clip(-p_true + self.anomaly_threshold, min=0)
-        fake_loss = torch.clip(p_fake - self.anomaly_threshold, min=0)
+        fake_loss = torch.clip(p_fake + self.anomaly_threshold, min=0)
 
         loss = true_loss.mean() + fake_loss.mean()
 
         self.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("val_p_true", p_true, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("val_p_fake", p_fake, prog_bar=True, on_step=False, on_epoch=True)
+        self.log(
+            "true_scores",
+            true_scores.mean(),
+            prog_bar=True,
+            on_epoch=True,
+        )
+        self.log(
+            "fake_scores",
+            fake_scores.mean(),
+            prog_bar=True,
+            on_epoch=True,
+        )
 
         return loss
 
@@ -319,7 +344,7 @@ class OriginalSimplenetModule(LightningModule):
         batch_size = len(x)
         embedding, patch_shapes = self._embed(x)
         features = self.projection(embedding)
-        patch_scores = image_scores = -self.descriminator(features)
+        patch_scores = image_scores = -self.discriminator(features)
 
         image_scores = rearrange_patches_to_batch(
             patches=patch_scores, batchsize=batch_size

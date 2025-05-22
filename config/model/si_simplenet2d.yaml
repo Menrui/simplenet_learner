@@ -13,6 +13,8 @@ simplenet2d_cfg:
   projection_layer_num: 1
   discriminator_layer_num: 3
   discriminator_reduce_rate: 1.5
+  use_backborn_layers: "2_3"
+  patch_size: 2
 
 projection_optimizer_cfg:
   name: AdamW
@@ -40,7 +42,7 @@ discriminator_lr_scheduler_cfg:
   eta_min: 8e-5
 
 noise_generator:
-  _target_: src.simplenet_learner.utils.noise_generator.NoiseGenerator2D
+  _target_: src.simplenet_learner.utils.noise_generator.SpatiallyIndependentNoiseGenerator2D
   noise_std: 0.015
   noise_type: normal
   noise_scaling: 1.1

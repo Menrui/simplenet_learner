@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 import torch
 from lightning import LightningModule
@@ -5,6 +7,9 @@ from matplotlib import pyplot as plt
 from omegaconf import DictConfig
 from scipy import ndimage
 
+from simplenet_learner.models.networks.si_simplenet2d import (
+    SpatiallyIndependentSimplenet2D,
+)
 from simplenet_learner.models.networks.simplenet2d import Simplenet2D
 from simplenet_learner.models.optimizers import get_optimizer
 from simplenet_learner.models.schedulers import get_lr_scheduler
@@ -22,23 +27,36 @@ class Simplenet2DModule(LightningModule):
         simplenet2d_cfg: DictConfig,
         projection_optimizer_cfg: DictConfig,
         projection_lr_scheduler_cfg: DictConfig,
-        descriminator_optimizer_cfg: DictConfig,
-        descriminator_lr_scheduler_cfg: DictConfig,
+        discriminator_optimizer_cfg: DictConfig,
+        discriminator_lr_scheduler_cfg: DictConfig,
         noise_generator: NoiseGenerator2D,
         anomaly_threshold: float = 0.8,
         size_of_predict_mask: tuple[int, int] = (224, 224),
     ):
         super().__init__()
 
-        self.model = Simplenet2D(
-            backborn_arch=simplenet2d_cfg.backborn_arch,
-            backborn_pretrained=simplenet2d_cfg.backborn_pretrained,
-            backborn_trainable=simplenet2d_cfg.backborn_trainable,
-            projection_channel=simplenet2d_cfg.projection_channel,
-            projection_layer_num=simplenet2d_cfg.projection_layer_num,
-            descriminator_layer_num=simplenet2d_cfg.descriminator_layer_num,
-            descriminator_reduce_rate=simplenet2d_cfg.descriminator_reduce_rate,
-        )
+        if simplenet2d_cfg.get("spatially_independent", False):
+            self.model: Union[Simplenet2D, SpatiallyIndependentSimplenet2D] = (
+                Simplenet2D(
+                    backborn_arch=simplenet2d_cfg.backborn_arch,
+                    backborn_pretrained=simplenet2d_cfg.backborn_pretrained,
+                    backborn_trainable=simplenet2d_cfg.backborn_trainable,
+                    projection_channel=simplenet2d_cfg.projection_channel,
+                    projection_layer_num=simplenet2d_cfg.projection_layer_num,
+                    discriminator_layer_num=simplenet2d_cfg.discriminator_layer_num,
+                    discriminator_reduce_rate=simplenet2d_cfg.discriminator_reduce_rate,
+                )
+            )
+        else:
+            self.model = SpatiallyIndependentSimplenet2D(
+                backborn_arch=simplenet2d_cfg.backborn_arch,
+                backborn_pretrained=simplenet2d_cfg.backborn_pretrained,
+                backborn_trainable=simplenet2d_cfg.backborn_trainable,
+                projection_channel=simplenet2d_cfg.projection_channel,
+                projection_layer_num=simplenet2d_cfg.projection_layer_num,
+                discriminator_layer_num=simplenet2d_cfg.discriminator_layer_num,
+                discriminator_reduce_rate=simplenet2d_cfg.discriminator_reduce_rate,
+            )
 
         if self.model.projection is not None:
             self.projection_optimizer = get_optimizer(
@@ -47,11 +65,11 @@ class Simplenet2DModule(LightningModule):
             self.projection_lr_scheduler = get_lr_scheduler(
                 self.projection_optimizer, projection_lr_scheduler_cfg
             )
-        self.descriminator_optimizer = get_optimizer(
-            self.model.descriminator, descriminator_optimizer_cfg
+        self.discriminator_optimizer = get_optimizer(
+            self.model.discriminator, discriminator_optimizer_cfg
         )
-        self.descriminator_lr_scheduler = get_lr_scheduler(
-            self.descriminator_optimizer, descriminator_lr_scheduler_cfg
+        self.discriminator_lr_scheduler = get_lr_scheduler(
+            self.discriminator_optimizer, discriminator_lr_scheduler_cfg
         )
 
         self.anomaly_threshold = anomaly_threshold
@@ -68,20 +86,20 @@ class Simplenet2DModule(LightningModule):
 
     def training_step(self, batch, batch_idx):
         if self.model.projection is not None:
-            projection_optimizer, descriminator_optimizer = self.configure_optimizers()
+            projection_optimizer, discriminator_optimizer = self.configure_optimizers()
             projection_optimizer.zero_grad()
         else:
-            descriminator_optimizer = self.configure_optimizers()
-        descriminator_optimizer.zero_grad()
+            discriminator_optimizer = self.configure_optimizers()
+        discriminator_optimizer.zero_grad()
 
         x = batch[0]
         # Feature extraction and Projection
         true_features = self.model.forward_features(x)
         fake_features = self.noise_generator.add_noise(true_features)
 
-        # Descriminator
-        true_scores = self.model.forward_descriminator(true_features)
-        fake_scores = self.model.forward_descriminator(fake_features)
+        # discriminator
+        true_scores = self.model.forward_discriminator(true_features)
+        fake_scores = self.model.forward_discriminator(fake_features)
         _, _, score_h, score_w = true_scores.shape
 
         # Loss
@@ -93,19 +111,19 @@ class Simplenet2DModule(LightningModule):
         # Optimizer step
         if self.model.projection is not None:
             projection_optimizer.step()
-        descriminator_optimizer.step()
+        discriminator_optimizer.step()
 
         # Scheduler step
         if self.projection_lr_scheduler is not None:
             self.projection_lr_scheduler.step()
-        if self.descriminator_lr_scheduler is not None:
-            self.descriminator_lr_scheduler.step()
+        if self.discriminator_lr_scheduler is not None:
+            self.discriminator_lr_scheduler.step()
 
         # Metric
         p_true = (true_scores >= self.anomaly_threshold).sum() / (
             len(true_scores) * score_h * score_w
         )
-        p_fake = (fake_scores >= self.anomaly_threshold).sum() / (
+        p_fake = (fake_scores < -self.anomaly_threshold).sum() / (
             len(fake_scores) * score_h * score_w
         )
 
@@ -127,16 +145,16 @@ class Simplenet2DModule(LightningModule):
 
     def configure_optimizers(self):
         if self.model.projection is not None:
-            return self.projection_optimizer, self.descriminator_optimizer
-        return self.descriminator_optimizer
+            return self.projection_optimizer, self.discriminator_optimizer
+        return self.discriminator_optimizer
 
     def validation_step(self, batch, batch_idx):
         x = batch[0]
         true_features = self.model.forward_features(x)
         fake_features = self.noise_generator.add_noise(true_features)
 
-        true_scores = self.model.forward_descriminator(true_features)
-        fake_scores = self.model.forward_descriminator(fake_features)
+        true_scores = self.model.forward_discriminator(true_features)
+        fake_scores = self.model.forward_discriminator(fake_features)
         _, _, score_h, score_w = true_scores.shape
 
         true_loss = torch.clip(-true_scores + self.anomaly_threshold, min=0)
@@ -146,13 +164,15 @@ class Simplenet2DModule(LightningModule):
         p_true = (true_scores >= self.anomaly_threshold).sum() / (
             len(true_scores) * score_h * score_w
         )
-        p_fake = (fake_scores >= self.anomaly_threshold).sum() / (
+        p_fake = (fake_scores < -self.anomaly_threshold).sum() / (
             len(fake_scores) * score_h * score_w
         )
 
         self.log("val_loss", loss, prog_bar=True, on_epoch=True)
         self.log("val_p_true", p_true, prog_bar=True, on_epoch=True)
         self.log("val_p_fake", p_fake, prog_bar=True, on_epoch=True)
+        self.log("true_score", true_scores.mean(), prog_bar=True, on_epoch=True)
+        self.log("fake_score", fake_scores.mean(), prog_bar=True, on_epoch=True)
 
         return loss
 
@@ -318,5 +338,30 @@ class Simplenet2DModule(LightningModule):
         ax.plot(fpr, tpr)
         ax.grid()
         plt.savefig("roc_curve.png")
+
+        # 追加：NGラベルがついたサンプルのヒートマップと元画像を横に並べて表示
+        # NGラベルとみなす条件はgt_labelsが1となっているサンプル
+        abnormal_indices = [i for i, label in enumerate(gt_labels) if label == 1]
+        # かつ、オリジナル画像が存在する場合に描画する
+        for idx in abnormal_indices:
+            idx = abnormal_indices[
+                idx
+            ]  # NGサンプルの中から最初のサンプルを表示（必要に応じて複数表示するなど拡張可能）
+            heatmap = score_maps[idx] / np.max(score_maps[idx])  # ヒートマップの正規化
+            heatmap = np.clip(heatmap, 0, 1)
+            # プロットの作成：ヒートマップだけ表示する
+            # ヒートマップはカラーマップを使用して可視化
+            fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+            axs[0].imshow(heatmap, cmap="jet")
+            axs[0].set_title("Heatmap")
+            axs[0].axis("off")
+            # 元画像を表示する
+            original_image = gt_masks[idx]
+            axs[1].imshow(original_image.squeeze(), cmap="gray")
+            axs[1].set_title("Original Mask")
+            axs[1].axis("off")
+            plt.tight_layout()
+            plt.savefig(f"ng_sample_heatmap_{idx}.png")
+            plt.close(fig)
 
         return auroc
