@@ -9,7 +9,7 @@ simplenet2d_cfg:
   backborn_arch: resnet18
   backborn_pretrained: True
   backborn_trainable: False
-  projection_channel: 384
+  projection_channel: 748
   projection_layer_num: 1
   discriminator_layer_num: 3
   discriminator_reduce_rate: 1.5

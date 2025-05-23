@@ -4,7 +4,7 @@ defaults:
   # basic configuration
   - _self_
   - datamodule: null
-  - model: simplenet2d.yaml
+  - model: si_simplenet2d.yaml
   - callbacks: default.yaml
   - logger: csv.yaml
   - log_dir: default.yaml

@@ -1,0 +1,99 @@
+defaults:
+  - override /datamodule: mvtecad.yaml
+  - override /model: si_simplenet2d.yaml
+  - override /callbacks: default.yaml
+  - override /logger: csv.yaml
+  - override /trainer: default.yaml
+
+data_dir: ${original_work_dir}/data
+train: true
+test: true
+seed: null
+
+datamodule:
+  category: bottle
+  transform_cfg:
+    resize_h: 256
+    resize_w: 256
+    h_flip_p: 0
+    v_flip_p: 0
+    crop_h: 224
+    crop_w: 224
+  batch_size: 4
+  num_workers: 4
+  pin_memory: true
+
+model:
+  anomaly_threshold: 0.5
+
+  simplenet2d_cfg:
+    backborn_arch: resnet18
+    backborn_pretrained: true
+    backborn_trainable: false
+    projection_channel: 748
+    projection_layer_num: 1
+    discriminator_layer_num: 3
+    discriminator_reduce_rate: 1.5
+    use_backborn_layers: "2_3"
+    patch_size: 2
+
+  projection_optimizer_cfg:
+    name: AdamW
+    lr: 0.0001
+    weight_decay: 0
+
+  projection_lr_scheduler_cfg: null
+
+  discriminator_optimizer_cfg:
+    name: Adam
+    lr: 0.0002
+    weight_decay: 0
+
+  discriminator_lr_scheduler_cfg:
+    name: CosineAnnealingLR
+    T_max: ${trainer.max_epochs}
+    eta_min: 8.0e-05
+
+  noise_generator:
+    _target_: src.simplenet_learner.utils.noise_generator.SpatiallyIndependentNoiseGenerator2D
+    noise_std: 0.015
+    noise_type: normal
+    noise_scaling: 1.1
+    num_clsses: 1
+
+callbacks:
+  model_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    monitor: val_loss
+    mode: min
+    save_last: true
+    verbose: true
+    dirpath: checkpoints/
+    filename: epoch_{epoch:03d}
+    auto_insert_metric_name: false
+  early_stopping:
+    _target_: lightning.pytorch.callbacks.EarlyStopping
+    monitor: val_loss
+    mode: min
+    patience: 20
+    min_delta: 0
+  model_summary:
+    _target_: lightning.pytorch.callbacks.RichModelSummary
+    max_depth: -1
+  rich_progress_bar:
+    _target_: lightning.pytorch.callbacks.RichProgressBar
+  lr_monitor:
+    _target_: lightning.pytorch.callbacks.lr_monitor.LearningRateMonitor
+    logging_interval: epoch
+logger:
+  csv:
+    _target_: pytorch_lightning.loggers.csv_logs.CSVLogger
+    save_dir: .
+    name: csv/
+    prefix: ""
+trainer:
+  _target_: lightning.Trainer
+  accelerator: gpu
+  devices: -1
+  min_epochs: 1
+  max_epochs: 100

@@ -24,11 +24,13 @@ dependencies = [
     "onnx>=1.17.0",
     "pycryptodome>=3.21.0",
     "python-dotenv>=1.0.1",
+    "hydra-optuna-sweeper>=1.2.0",
 ]
 
 [dependency-groups]
 dev = [
     "ipykernel>=6.29.5",
+    "opencv-python>=4.11.0.86",
     "simplenet-learner",
 ]
 
