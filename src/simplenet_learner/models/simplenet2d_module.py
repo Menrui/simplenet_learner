@@ -1,3 +1,4 @@
+import csv
 from typing import Union
 
 import numpy as np
@@ -363,5 +364,26 @@ class Simplenet2DModule(LightningModule):
             plt.tight_layout()
             plt.savefig(f"ng_sample_heatmap_{idx}.png")
             plt.close(fig)
+
+        # 異常サンプルのインデックス、スコア、ラベルをCSVに保存
+        abnormal_scores = np.array(image_scores)[abnormal_indices]
+        abnormal_labels = np.array(gt_labels)[abnormal_indices]
+        with open("abnormal_samples.csv", "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["abnormal_index", "image_score", "gt_label"])
+            for idx, score, label in zip(
+                abnormal_indices, abnormal_scores, abnormal_labels
+            ):
+                writer.writerow([idx, score, label])
+
+        # 正常サンプルのインデックス、スコア、ラベルをCSVに保存
+        normal_indices = [i for i, label in enumerate(gt_labels) if label == 0]
+        normal_scores = np.array(image_scores)[normal_indices]
+        normal_labels = np.array(gt_labels)[normal_indices]
+        with open("normal_samples.csv", "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["normal_index", "image_score", "gt_label"])
+            for idx, score, label in zip(normal_indices, normal_scores, normal_labels):
+                writer.writerow([idx, score, label])
 
         return auroc
