@@ -42,9 +42,12 @@ def get_onnx_statistics_pipeline(
         ]
     )
 
+    onnx_option = ort.SessionOptions()
+    onnx_option.log_severity_level = 0
     model = ort.InferenceSession(
         str(onnx_model_path),
         providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+        sess_options=onnx_option,
     )
     input_name = model.get_inputs()[0].name
     output_name = model.get_outputs()[0].name

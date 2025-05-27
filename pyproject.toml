@@ -25,6 +25,7 @@ dependencies = [
     "pycryptodome>=3.21.0",
     "python-dotenv>=1.0.1",
     "hydra-optuna-sweeper>=1.2.0",
+    "onnxruntime-gpu>=1.22.0",
 ]
 
 [dependency-groups]
